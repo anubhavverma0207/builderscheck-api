@@ -1,62 +1,39 @@
 from flask import Flask, request, jsonify
 import requests
-from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-# Endpoint: Default placeholder for Companies Office NZ (coming soon)
-@app.route('/fetch-company-info', methods=['GET'])
-def fetch_company_info():
-    name = request.args.get('name', '').lower()
-    if not name:
-        return jsonify({"error": "No company name provided"}), 400
-    return jsonify({
-        "message": "NZ Companies Register API integration coming soon.",
-        "name": name
-    })
+# Constants
+COMPANYHUB_API_BASE = "https://api.companyhub.com/v1"
+SUBDOMAIN = "av0064380"
+API_KEY = "O21heP2mHNn4EMrWY9DX"
 
-# Endpoint: Check CompanyHub UI screen-scraped availability result
-@app.route('/check-companyhub', methods=['GET'])
-def check_companyhub():
-    name = request.args.get('name', '')
-    url = f"https://www.companyhub.nz/nameCheck.cfm?name={name.replace(' ', '+')}"
-    try:
-        response = requests.get(url, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        result_div = soup.find('div', class_='availabilityResult')
-        message = result_div.get_text(strip=True) if result_div else "Could not find availability result"
-        return jsonify({ "companyhub_name_check": message })
-    except Exception as e:
-        return jsonify({ "error": f"Status 403: Could not reach CompanyHub" }), 403
+HEADERS = {
+    "Authorization": f"{SUBDOMAIN} {API_KEY}",
+    "Content-Type": "application/json"
+}
 
-# ✅ NEW Endpoint: Query CompanyHub's API via exact match using field filters
 @app.route('/get-companyhub-info', methods=['GET'])
 def get_companyhub_info():
-    company_name = request.args.get('name', '')
-    url = "https://api.companyhub.com/v1/tables/company/search"
-
-    headers = {
-        "Authorization": "av0064380 O21heP2mHNn4EMrWY9DX",  # Replace with your subdomain and API key
-        "Content-Type": "application/json"
-    }
-
-    body = {
-        "Where": [
-            {
-                "FieldName": "Name",
-                "Operator": "eq",
-                "Values": [company_name]
-            }
-        ]
-    }
+    company_name = request.args.get('name')
+    if not company_name:
+        return jsonify({"error": "Company name is required"}), 400
 
     try:
-        response = requests.post(url, headers=headers, json=body, timeout=10)
-        response.raise_for_status()
-        return jsonify(response.json())
-    except Exception as e:
-        return jsonify({ "error": str(e) }), 500
+        search_url = f"{COMPANYHUB_API_BASE}/tables/company?searchText={company_name}"
+        response = requests.get(search_url, headers=HEADERS, timeout=10)
 
-# Flask server run block
+        if response.status_code != 200:
+            return jsonify({"error": f"Status {response.status_code}: {response.text}"}), response.status_code
+
+        return jsonify(response.json())
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/')
+def index():
+    return "BuilderCheck API is running!"
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
