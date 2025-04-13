@@ -7,7 +7,6 @@ app = Flask(__name__)
 COMPANYHUB_API_BASE = "https://api.companyhub.com/v1"
 SUBDOMAIN = "av0064380"
 API_KEY = "O21heP2mHNn4EMrWY9DX"
-
 HEADERS = {
     "Authorization": f"{SUBDOMAIN} {API_KEY}",
     "Content-Type": "application/json"
@@ -20,8 +19,18 @@ def get_companyhub_info():
         return jsonify({"error": "Company name is required"}), 400
 
     try:
-        search_url = f"{COMPANYHUB_API_BASE}/tables/company?searchText={company_name}"
-        response = requests.get(search_url, headers=HEADERS, timeout=10)
+        url = f"{COMPANYHUB_API_BASE}/tables/company/search"
+        body = {
+            "Where": [
+                {
+                    "FieldName": "Name",
+                    "Operator": "eq",
+                    "Values": [company_name]
+                }
+            ]
+        }
+
+        response = requests.post(url, json=body, headers=HEADERS, timeout=10)
 
         if response.status_code != 200:
             return jsonify({"error": f"Status {response.status_code}: {response.text}"}), response.status_code
