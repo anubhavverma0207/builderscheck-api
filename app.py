@@ -4,42 +4,40 @@ import os
 
 app = Flask(__name__)
 
-# Configuration
-API_KEY = os.environ.get("COMPANYHUB_API_KEY", "O21heP2mHNn4EMrWY9DX")
-SUBDOMAIN = os.environ.get("COMPANYHUB_SUBDOMAIN", "av0064380")
-
-COMPANYHUB_SEARCH_URL = "https://api.companyhub.com/v1/tables/company/search"
-HEADERS = {
-    "Authorization": f"{SUBDOMAIN} {API_KEY}",
-    "Content-Type": "application/json"
-}
-
 @app.route("/")
-def index():
-    return "BuildersCheck API is running"
+def home():
+    return "builderscheck-api is live!"
 
-@app.route("/get-companyhub-info", methods=["GET"])
+@app.route("/get-companyhub-info")
 def get_companyhub_info():
-    name = request.args.get("name")
-    if not name:
+    company_name = request.args.get("name")
+    if not company_name:
         return jsonify({"error": "Missing 'name' query parameter"}), 400
 
-    payload = {
+    # Fetch environment variables
+    subdomain = os.getenv("COMPANYHUB_SUBDOMAIN")
+    api_key = os.getenv("COMPANYHUB_API_KEY")
+
+    if not subdomain or not api_key:
+        return jsonify({"error": "Missing COMPANYHUB_SUBDOMAIN or COMPANYHUB_API_KEY env variables"}), 500
+
+    url = "https://api.companyhub.com/v1/tables/company/search"
+    headers = {
+        "Authorization": f"{subdomain} {api_key}",
+        "Content-Type": "application/json"
+    }
+    body = {
         "Where": [
             {
                 "FieldName": "Name",
                 "Operator": "eq",
-                "Values": [name]
+                "Values": [company_name]
             }
         ]
     }
 
     try:
-        response = requests.post(COMPANYHUB_SEARCH_URL, headers=HEADERS, json=payload)
+        response = requests.post(url, headers=headers, json=body)
         return jsonify(response.json()), response.status_code
-    except requests.RequestException as e:
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
