@@ -8,12 +8,11 @@ app = Flask(__name__)
 def fetch_company_info():
     name = request.args.get('name', '').lower()
 
-    # Simple fallback if company not provided
     if not name:
         return jsonify({"error": "No company name provided"}), 400
 
     return jsonify({
-        "message": "NZ Companies Register scraping currently under maintenance. Use /check-companyhub for name check.",
+        "message": "NZ Companies Register API integration coming soon.",
         "name": name
     })
 
@@ -26,8 +25,8 @@ def check_companyhub():
         response = requests.get(url, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        # The result is inside the input box or result section
-        result_div = soup.find('div', class_='results') or soup.find('div', class_='availabilityResult')
+        # ✅ FIXED selector: look for class="availabilityResult"
+        result_div = soup.find('div', class_='availabilityResult')
         message = result_div.get_text(strip=True) if result_div else "Could not find availability result"
 
         return jsonify({
