@@ -1,48 +1,45 @@
 from flask import Flask, request, jsonify
 import requests
+import os
 
 app = Flask(__name__)
 
-# Constants
-COMPANYHUB_API_BASE = "https://api.companyhub.com/v1"
-SUBDOMAIN = "av0064380"
-API_KEY = "O21heP2mHNn4EMrWY9DX"
-HEADERS = {
-    "Authorization": f"{SUBDOMAIN} {API_KEY}",
-    "Content-Type": "application/json"
-}
+# Securely set these in environment variables for production
+COMPANYHUB_API_KEY = "O21heP2mHNn4EMrWY9DX"
+COMPANYHUB_SUBDOMAIN = "av0064380"
 
-@app.route('/get-companyhub-info', methods=['GET'])
-def get_companyhub_info():
-    company_name = request.args.get('name')
-    if not company_name:
-        return jsonify({"error": "Company name is required"}), 400
-
-    try:
-        url = f"{COMPANYHUB_API_BASE}/tables/company/search"
-        body = {
-            "Where": [
-                {
-                    "FieldName": "Name",
-                    "Operator": "eq",
-                    "Values": [company_name]
-                }
-            ]
-        }
-
-        response = requests.post(url, json=body, headers=HEADERS, timeout=10)
-
-        if response.status_code != 200:
-            return jsonify({"error": f"Status {response.status_code}: {response.text}"}), response.status_code
-
-        return jsonify(response.json())
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/')
-def index():
+@app.route("/")
+def home():
     return "BuilderCheck API is running!"
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+@app.route("/get-companyhub-info")
+def get_companyhub_info():
+    company_name = request.args.get("name")
+    if not company_name:
+        return jsonify({"error": "Missing 'name' parameter"}), 400
+
+    url = "https://api.companyhub.com/v1/tables/company/search"
+    headers = {
+        "Authorization": f"{COMPANYHUB_SUBDOMAIN} {COMPANYHUB_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "Where": [
+            {
+                "FieldName": "Name",
+                "Operator": "eq",
+                "Values": [company_name]
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        return jsonify(response.json())
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(debug=True)
