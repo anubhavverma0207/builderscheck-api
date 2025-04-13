@@ -3,18 +3,19 @@ import requests
 
 app = Flask(__name__)
 
-# 🔐 CompanyHub API Credentials
-COMPANYHUB_SUBDOMAIN = 'av0064380'
-COMPANYHUB_API_KEY = 'O21heP2mMHn4EMrWY9DX'
+# CompanyHub API configuration
+COMPANYHUB_SUBDOMAIN = "av0064380"
+COMPANYHUB_API_KEY = "O21heP2mMHn4EMrWY9DX"
+COMPANYHUB_BASE_URL = "https://api.companyhub.com/v1"
 
-@app.route('/get-companyhub-info', methods=['GET'])
+@app.route("/get-companyhub-info", methods=["GET"])
 def get_companyhub_info():
-    name = request.args.get('name', '').strip()
-    if not name:
-        return jsonify({"error": "No company name provided"}), 400
+    company_name = request.args.get("name")
+    if not company_name:
+        return jsonify({"error": "Missing company name parameter"}), 400
 
-    # Step 1: Prepare API request to CompanyHub
-    url = f"https://api.companyhub.com/v1/tables/company?searchText={name}"
+    # Prepare API request to CompanyHub search
+    url = f"{COMPANYHUB_BASE_URL}/tables/company?searchText={company_name}"
     headers = {
         "Authorization": f"{COMPANYHUB_SUBDOMAIN} {COMPANYHUB_API_KEY}",
         "Content-Type": "application/json"
@@ -23,27 +24,17 @@ def get_companyhub_info():
     try:
         response = requests.get(url, headers=headers, timeout=15)
         if response.status_code != 200:
-            return jsonify({"error": f"Status {response.status_code}: {response.text}"}), 500
+            return jsonify({"error": f"Status {response.status_code}: {response.text}"}), response.status_code
 
         data = response.json()
-
-        # Step 2: Validate and extract data
-        if not data.get("Success"):
-            return jsonify({"error": data.get("Message", "Unknown error")}), 500
-
-        records = data.get("Data", [])
-        if not records:
-            return jsonify({"error": "Company not found"}), 404
-
-        # Step 3: Return the first matching record
-        return jsonify(records[0])
+        return jsonify(data)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/')
-def hello():
-    return "BuilderCheck API is live ✅"
+@app.route("/")
+def home():
+    return "CompanyHub API Integration Active"
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
