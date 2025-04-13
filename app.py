@@ -4,42 +4,42 @@ import os
 
 app = Flask(__name__)
 
-# Securely set these in environment variables for production
-COMPANYHUB_API_KEY = "O21heP2mHNn4EMrWY9DX"
-COMPANYHUB_SUBDOMAIN = "av0064380"
+# Configuration
+API_KEY = os.environ.get("COMPANYHUB_API_KEY", "O21heP2mHNn4EMrWY9DX")
+SUBDOMAIN = os.environ.get("COMPANYHUB_SUBDOMAIN", "av0064380")
+
+COMPANYHUB_SEARCH_URL = "https://api.companyhub.com/v1/tables/company/search"
+HEADERS = {
+    "Authorization": f"{SUBDOMAIN} {API_KEY}",
+    "Content-Type": "application/json"
+}
 
 @app.route("/")
-def home():
-    return "BuilderCheck API is running!"
+def index():
+    return "BuildersCheck API is running"
 
-@app.route("/get-companyhub-info")
+@app.route("/get-companyhub-info", methods=["GET"])
 def get_companyhub_info():
-    company_name = request.args.get("name")
-    if not company_name:
-        return jsonify({"error": "Missing 'name' parameter"}), 400
-
-    url = "https://api.companyhub.com/v1/tables/company/search"
-    headers = {
-        "Authorization": f"{COMPANYHUB_SUBDOMAIN} {COMPANYHUB_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    name = request.args.get("name")
+    if not name:
+        return jsonify({"error": "Missing 'name' query parameter"}), 400
 
     payload = {
         "Where": [
             {
                 "FieldName": "Name",
                 "Operator": "eq",
-                "Values": [company_name]
+                "Values": [name]
             }
         ]
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        return jsonify(response.json())
-    except requests.exceptions.RequestException as e:
+        response = requests.post(COMPANYHUB_SEARCH_URL, headers=HEADERS, json=payload)
+        return jsonify(response.json()), response.status_code
+    except requests.RequestException as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
