@@ -1,79 +1,62 @@
 from flask import Flask, request, jsonify
 import requests
 from bs4 import BeautifulSoup
-import re
 
 app = Flask(__name__)
 
-@app.route('/fetch-company-info', methods=['GET'])
-def fetch_company_info():
-    company_name = request.args.get('name', '').strip()
-    if not company_name:
-        return jsonify({'error': 'No company name provided'}), 400
-
-    # Step 1: Format search URL
-    search_url = f"https://app.companiesoffice.govt.nz/companies/app/ui/pages/companies/search?mode=advanced&companyName={company_name.replace(' ', '+')}"
-
+def fetch_company_info_from_nz_register(company_name):
+    search_url = f"https://app.companiesoffice.govt.nz/companies/app/ui/pages/companies/search?mode=default"
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
 
-    # Step 2: Make request to NZ Companies Register
-    response = requests.get(search_url, headers=headers)
+    # Step 1: Search the Companies Register
+    session = requests.Session()
+    response = session.get(f"https://app.companiesoffice.govt.nz/companies/app/ui/pages/companies/search?mode=default&searchTerm={company_name}", headers=headers)
+
     if response.status_code != 200:
-        return jsonify({'error': 'Failed to fetch from register'}), 500
+        return None
 
     soup = BeautifulSoup(response.text, 'html.parser')
+    results = soup.select("table#searchResultsTable tbody tr")
 
-    # Step 3: Scrape list of companies from the search results
-    companies = []
-    rows = soup.select('table.searchResultTable tr')[1:]  # skip header
-    for row in rows:
-        cols = row.find_all('td')
-        if len(cols) >= 3:
-            link = cols[0].find('a')
-            name = link.text.strip()
-            url = link['href']
-            nzbn = cols[1].text.strip()
-            status = cols[2].text.strip()
-            companies.append({
-                'name': name,
-                'url': "https://app.companiesoffice.govt.nz" + url,
-                'nzbn': nzbn,
-                'status': status
-            })
+    for row in results:
+        name_cell = row.select_one("td a")
+        if not name_cell:
+            continue
+        matched_name = name_cell.text.strip().lower()
+        if company_name.lower() in matched_name:
+            href = name_cell.get('href')
+            company_url = f"https://app.companiesoffice.govt.nz{href}"
 
-    # Step 4: Match company using case-insensitive partial match
-    pattern = re.compile(re.escape(company_name), re.IGNORECASE)
-    matched = next((c for c in companies if pattern.search(c['name'])), None)
+            # Step 2: Scrape company detail page
+            detail_res = session.get(company_url, headers=headers)
+            if detail_res.status_code != 200:
+                return None
 
-    if not matched:
+            detail_soup = BeautifulSoup(detail_res.text, 'html.parser')
+            company_info = {
+                "companyName": detail_soup.select_one("#companyHeading").text.strip() if detail_soup.select_one("#companyHeading") else None,
+                "nzbn": detail_soup.find("th", string="NZBN:").find_next("td").text.strip() if detail_soup.find("th", string="NZBN:") else None,
+                "registrationDate": detail_soup.find("th", string="Incorporation Date:").find_next("td").text.strip() if detail_soup.find("th", string="Incorporation Date:") else None,
+                "status": detail_soup.find("th", string="Company Status:").find_next("td").text.strip() if detail_soup.find("th", string="Company Status:") else None,
+                "entityType": detail_soup.find("th", string="Entity type:").find_next("td").text.strip() if detail_soup.find("th", string="Entity type:") else None,
+            }
+            return company_info
+
+    return None
+
+@app.route('/fetch-company-info', methods=['GET'])
+def fetch_company_info():
+    name = request.args.get('name', '').strip()
+    if not name:
+        return jsonify({"error": "Company name is required"}), 400
+
+    result = fetch_company_info_from_nz_register(name)
+    if result:
+        return jsonify(result)
+    else:
         return jsonify({"error": "Company not found"}), 404
-
-    # Step 5: Scrape company details page
-    details_response = requests.get(matched['url'], headers=headers)
-    if details_response.status_code != 200:
-        return jsonify({'error': 'Failed to fetch company details'}), 500
-
-    details_soup = BeautifulSoup(details_response.text, 'html.parser')
-
-    info = {
-        'companyName': matched['name'],
-        'nzbn': matched['nzbn'],
-        'status': matched['status'],
-        'registrationDate': '',
-        'entityType': '',
-        'address': '',
-    }
-
-    try:
-        info['registrationDate'] = details_soup.find(text='Incorporation Date:').find_next().text.strip()
-        info['entityType'] = details_soup.find(text='Entity type:').find_next().text.strip()
-        info['address'] = details_soup.find('a', href=True, text='Company addresses:').parent.find_next('td').text.strip()
-    except Exception as e:
-        print("Error parsing details:", e)
-
-    return jsonify(info)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
