@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import subprocess
 import uuid
 import os
 
 app = Flask(__name__)
+CORS(app, origins=["https://builderscheck-frontend.onrender.com"])
 
 @app.route("/run-redflag", methods=["POST"])
 def run_redflag():
