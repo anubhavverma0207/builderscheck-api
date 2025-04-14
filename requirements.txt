@@ -2,7 +2,7 @@ Flask
 openai>=1.0.0
 requests
 beautifulsoup4
-serpapi
+google-search-results==2.0.2
 python-dotenv
 selenium
 pillow
