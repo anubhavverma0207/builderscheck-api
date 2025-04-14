@@ -7,3 +7,4 @@ python-dotenv
 selenium
 pillow
 pytesseract
+serpapi==0.1.5
