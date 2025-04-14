@@ -3,7 +3,7 @@ import json
 import time
 import requests
 from bs4 import BeautifulSoup
-from serpapi import GoogleSearch
+from google_search_results import GoogleSearch
 from openai import OpenAI
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
